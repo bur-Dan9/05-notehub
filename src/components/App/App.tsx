@@ -4,7 +4,7 @@ import SearchBox from "../SearchBox/SearchBox";
 import Pagination from "../Pagination/Pagination";
 import NoteList from "../NoteList/NoteList";
 import Modal from "../Modal/Modal";
-import NoteForm from "../NoteForm/ NoteForm";
+import NoteForm from "../NoteForm/NoteForm";
 
 import { useState } from "react";
 import { useDebounce } from "use-debounce";
