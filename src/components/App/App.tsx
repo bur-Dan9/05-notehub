@@ -1,90 +1,76 @@
-import MovieGrid from "../MovieGrid/MovieGrid";
-import SearchBar from "../SearchBar/SearchBar";
-import type { Movie } from "../../types/movie";
-import { fetchMovies } from "../../services/movieService";
-import { useState } from "react";
-import css from './App.module.css'
-import { Toaster } from "react-hot-toast";
-import toast from "react-hot-toast";
-import MovieModal from "../MovieModal/MovieModal";
-import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import ReactPaginate from "react-paginate";
-import { useEffect } from "react";
+import css from "./App.module.css";
 
+import SearchBox from "../SearchBox/SearchBox";
+import Pagination from "../Pagination/Pagination";
+import NoteList from "../NoteList/NoteList";
+import Modal from "../Modal/Modal";
+import NoteForm from "../NoteForm/ NoteForm";
+
+import { useState } from "react";
+import { useDebounce } from "use-debounce";
+import { useQuery } from "@tanstack/react-query";
+import { fetchNotes } from "../../services/noteService";
+import { Toaster } from "react-hot-toast";
+import { keepPreviousData } from "@tanstack/react-query";
 
 export default function App() {
-    const [query, setQuery] = useState("");
-    const [page, setPage] = useState(1);
-    const [isModalOpen, setIsModalOpen] = useState(false);
-    const [selectedMovie, setSelectedMovie] = useState<Movie | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
 
-    const { data, isLoading, isError, isSuccess } = useQuery({
-        queryKey: ["movies", query, page],
-        queryFn: () => fetchMovies(query, page),
-        enabled: query !== "",
-        placeholderData: keepPreviousData,        
-    });
-    
-    const totalPages = data?.total_pages ?? 0;
+  const [debounceSearchQuery] = useDebounce(searchQuery, 300);
 
+  const { data } = useQuery({
+    queryKey: ["notes", debounceSearchQuery, currentPage],
+    queryFn: () => fetchNotes(debounceSearchQuery, currentPage),
+    placeholderData: keepPreviousData,
+  });
 
-    useEffect(() => {
+  const notes = data?.notes ?? [];
+  const totalPages = data?.totalPages ?? 0;
 
-        if (data?.results.length === 0) {
-            toast("No movies found for your request.", {
-                duration: 2000,
-                position: 'top-center',
-            });
-        }
-    }, [isSuccess, data]);
-    
+  const changeSearchQuery = (newQuery: string) => {
+    setCurrentPage(1);
+    setSearchQuery(newQuery);
+  };
 
+  const toogleModal = () => {
+    setIsModalOpen(!isModalOpen);
+  };
 
-    const handleFormSubmit = (newQuery: string) => {
-        setQuery(newQuery);
-        setPage(1);
-        setSelectedMovie(null);
-    };
-
-    const handleSelectedMovie = (movie: Movie) => {
-        setSelectedMovie(movie);
-        setIsModalOpen(true);
-    }
-
-    const closeModal = () => {
-        setSelectedMovie(null);
-        setIsModalOpen(false);
-    }
-
-    return (
-
-        <div className={css.app}>
-
-            <SearchBar onSubmit={handleFormSubmit} />
-            
-            {isSuccess && data?.results.length > 0 &&
-            <ReactPaginate
-                pageCount={totalPages}
-                pageRangeDisplayed={5}
-                marginPagesDisplayed={1}
-                onPageChange={({ selected }) => setPage(selected + 1)}
-                forcePage={page - 1}
-                containerClassName={css.pagination}
-                activeClassName={css.active}
-                nextLabel="→"
-                previousLabel="←"/>}
-
-            <Toaster/>
-
-            {isLoading && <strong>Loading movies, please wait...</strong>}
-
-            {isError && <strong>There was an error, please try again...</strong>}
-
-            {data && data.results.length > 0 && <MovieGrid onSelect={handleSelectedMovie} movies={data.results} />}
-            
-            {isModalOpen && selectedMovie && <MovieModal movie={selectedMovie} onClose={closeModal} />}
-            
-        </div>
-        
-    )
+  return (
+    <div className={css.app}>
+      <Toaster position="top-right" reverseOrder={false} />
+      <header className={css.toolbar}>
+        <SearchBox value={searchQuery} onSearch={changeSearchQuery} />
+        {totalPages > 1 && (
+          <Pagination
+            totalPages={totalPages}
+            currentPage={currentPage}
+            onPageChange={setCurrentPage}
+          />
+        )}
+        <button
+          className={css.button}
+          onClick={() => {
+            toogleModal();
+          }}
+        >
+          Create Note +
+        </button>
+      </header>
+      {isModalOpen && (
+        <Modal onClose={toogleModal}>
+          {isModalOpen && (
+            <NoteForm
+              onClose={() => {
+                toogleModal();
+              }}
+            />
+          )}
+        </Modal>
+      )}
+      {notes.length > 0 && <NoteList notes={notes} />}
+    </div>
+  );
 }
